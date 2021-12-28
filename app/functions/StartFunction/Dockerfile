@@ -1,0 +1,14 @@
+FROM public.ecr.aws/sam/build-java11:latest as build-image
+
+WORKDIR "/task"
+COPY src/ src/
+COPY pom.xml ./
+
+RUN mvn -q clean install
+RUN mvn dependency:copy-dependencies -DincludeScope=compile
+
+FROM public.ecr.aws/lambda/java:11
+
+COPY --from=build-image /task/target/classes /var/task/
+COPY --from=build-image /task/target/dependency /var/task/lib
+CMD ["com.itau.fj1.backoffice.App::handleRequest"]
