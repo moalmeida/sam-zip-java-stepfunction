@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+# Transform: AWS::Serverless-2016-10-31
+Description: sam-zip-java-stepfunction Sample SAM Template for sam-zip-java-stepfunction
+Resources:
+  ApiGatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+  SyncLambdaStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: statemachine/syncLambda.asl.json
+      DefinitionSubstitutions:
+        CheckRejectedFunctionArn: !GetAtt CheckRejectedFunction.Arn
+      Tracing:
+        Enabled: true
+      Policies: 
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CheckRejectedFunction
+      Type: EXPRESS
+  SyncApiStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Type: EXPRESS
+      DefinitionUri: statemachine/syncApi.asl.json
+      DefinitionSubstitutions:
+        CheckRejectedFunctionArn: !GetAtt CheckRejectedFunction.Arn
+      Tracing:
+        Enabled: true
+      Events:
+        Checker:
+          Type: Api 
+          Properties:
+            Path: /sync
+            Method: get
+            RestApiId: !Ref ApiGatewayApi
+      Policies: 
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CheckRejectedFunction
+  CheckRejectedFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/CheckRejectedFunction
+      Handler: com.itau.fj1.backoffice.App::handleRequest
+      Runtime: java11
+      MemorySize: 1538
+  StartFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      CodeUri: functions/StartFunction
+      Handler: com.itau.fj1.backoffice.App::handleRequest
+      Runtime: java11
+      MemorySize: 1538
+      Events:
+        Start:
+          Type: Api
+          Properties:
+            Path: /start
+            Method: get
+            RestApiId: !Ref ApiGatewayApi
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CheckRejectedFunction
+        - StepFunctionsExecutionPolicy:
+            StateMachineName: !Ref SyncLambdaStateMachine
+Outputs:
+  SyncLambdaStateMachineArn:
+    Description: "Sync Lambda State machine ARN"
+    Value: !Ref SyncLambdaStateMachine
+  SyncLambdaStateMachineRoleArn:
+    Description: "IAM Role created for Sync Lambda"
+    Value: !GetAtt SyncLambdaStateMachineRole.Arn
+  SyncApiStateMachineArn:
+    Description: "Sync Api State machine ARN"
+    Value: !Ref SyncApiStateMachine
+  SyncApiStateMachineRoleArn:
+    Description: "IAM Role created for Sync Api"
+    Value: !GetAtt SyncApiStateMachineRole.Arn
+  StartApi:
+    Description: "API Gateway endpoint URL for Prod stage for Start function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/start/"
+  StartFunction:
+    Description: "Start Lambda Function ARN"
+    Value: !GetAtt StartFunction.Arn
+  StartFunctionIamRole:
+    Description: "Implicit IAM Role created for Start function"
+    Value: !GetAtt StartFunctionRole.Arn
