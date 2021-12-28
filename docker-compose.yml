@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  localstack:
+    container_name: localstack
+    hostname: localstack
+    image: localstack/localstack-full
+    network_mode: bridge
+    # user: root
+    environment:
+      # - DEBUG=1
+      - TZ=America/Sao_Paulo
+      - DATA_DIR=/tmp/localstack/data
+      - LAMBDA_EXECUTOR=local
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DEFAULT_REGION=us-east-1
+      - EDGE_PORT=4566
+      - HOSTNAME_EXTERNAL=localstack
+      - SERVICES=iam,s3,lambda,cloudformation,sts,stepfunctions,apigateway
+    ports:
+      - "4566:4566"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./localstack:/docker-entrypoint-initaws.d
+      - ./app:/opt/code/localstack/app
